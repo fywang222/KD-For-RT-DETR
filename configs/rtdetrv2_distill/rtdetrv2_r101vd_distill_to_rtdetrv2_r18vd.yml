@@ -1,0 +1,55 @@
+__include__: [
+  '../dataset/coco_detection.yml',
+  '../runtime_distillation.yml',
+  './include/dataloader.yml',
+  './include/optimizer.yml',
+  './student/rtdetrv2_r18vd_120e_coco.yml',
+  './teacher/rtdetrv2_r101vd_6x.yml',
+]
+
+
+output_dir: ./output/rtdetrv2_r101vd_distill_to_rtdetrv2_r18vd
+
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*(?:norm|bn)).*$'
+      weight_decay: 0.
+
+epochs: 120
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 117
+  collate_fn:
+    scales: ~
+
+
+criterion: RTDETRCriterionv2Distill
+
+RTDETRCriterionv2Distill:
+  weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2, distill_cls_loss: 1, distill_bbox_loss: 5, distill_giou_loss: 2, }
+  #losses: ['vfl', 'boxes', 'distillation']
+  losses: ['distillation', ]
+  alpha: 0.75
+  gamma: 2.0
+  num_layers: 3
+
+  matcher:
+    type: HungarianMatcher
+    weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0
+
+  distiller:
+    type: KD
+    temperature: 0.5
+
+  teacher_resetter:
+    type: PredResetter
+    num_student_decoder_layers: 3
+    num_teacher_decoder_layers: 6

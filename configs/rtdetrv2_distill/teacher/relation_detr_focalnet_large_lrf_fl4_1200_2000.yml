@@ -1,0 +1,4 @@
+# Teacher model
+
+teacher:
+  type: RelationDETR

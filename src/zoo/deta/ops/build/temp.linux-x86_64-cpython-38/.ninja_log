@@ -1,0 +1,4 @@
+# ninja log v6
+1	19322	1739066405599587193	/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/build/temp.linux-x86_64-cpython-38/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/src/cpu/ms_deform_attn_cpu.o	64ad2485f6af1c9
+2	41428	1739066405599587193	/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/build/temp.linux-x86_64-cpython-38/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/src/cuda/ms_deform_attn_cuda.o	8510d41946fec65e
+2	49026	1739066405599587193	/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/build/temp.linux-x86_64-cpython-38/root/detection/rt_detr/rtdetrv2_pytorch_testing/src/zoo/deta/ops/src/vision.o	7cd0e03117b6a03d
