@@ -30,7 +30,7 @@ criterion: RTDETRCriterionv2Distill
 
 RTDETRCriterionv2Distill:
   weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2, distill_cls_loss: 1, distill_bbox_loss: 5, distill_giou_loss: 2, }
-  losses: ['vfl', 'boxes', ]
+  losses: ['vfl', 'boxes','distillation', ]
   alpha: 0.75
   gamma: 2.0
   num_layers: 6
@@ -43,7 +43,7 @@ RTDETRCriterionv2Distill:
 
   distiller:
     type: KD
-    temperature: 0.5
+    temperature: 1.0
 
   teacher_resetter:
     type: BlankResetter

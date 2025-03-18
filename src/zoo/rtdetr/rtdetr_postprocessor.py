@@ -64,6 +64,14 @@ class RTDETRPostProcessor(nn.Module):
                 62, 63, 64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90],
                 dtype=torch.int64)
             logits = logits[:, :, remap_to_80]
+            '''
+            scores = F.sigmoid(logits)
+            confidence, _ = torch.max(scores, dim=-1)
+            topk_conf, topk_indices = torch.topk(confidence, k=300, dim=1)  # topk_indices shape: [N, 300]
+            logits = torch.gather(logits, dim=1, index=topk_indices.unsqueeze(-1).expand(-1, -1, logits.size(-1)))
+            boxes = torch.gather(boxes, dim=1, index=topk_indices.unsqueeze(-1).expand(-1, -1, boxes.size(-1)))
+            '''
+
 
         if self.use_focal_loss:
             scores = F.sigmoid(logits)

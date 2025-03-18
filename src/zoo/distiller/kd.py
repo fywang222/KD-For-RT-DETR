@@ -17,16 +17,23 @@ class KD(BaseDistiller):
 
         losses = {}
 
+        '''
+        student_logits = student_outputs['pred_logits'].flatten(0, 1)
+        teacher_logits = teacher_outputs['pred_logits'].flatten(0, 1)
+        # [N, num_queries, num_classes] -> [N*num_queries, num_classes]
+        '''
+
+        # flatten
         student_logits = student_outputs['pred_logits'].flatten(1)
         teacher_logits = teacher_outputs['pred_logits'].flatten(1)
-        # [N, num_queries, num_classes] -> [N, num_queries * num_classes]
+        # [N, num_queries, num_classes] -> [N, num_queries*num_classes]
 
         student_boxes = student_outputs['pred_boxes'].flatten(0, 1)
         teacher_boxes = teacher_outputs['pred_boxes'].flatten(0, 1)
         # [N, num_queries, 4] -> [N * num_queries, 4]
 
         losses['distill_cls_loss'] = kl_div_loss(student_logits, teacher_logits, self.temperature)
-        '''
+
         num_boxes = student_boxes.shape[0]
 
         loss_bbox = F.l1_loss(student_boxes, teacher_boxes, reduction='none')
@@ -35,5 +42,5 @@ class KD(BaseDistiller):
         loss_giou = 1 - torch.diag(generalized_box_iou(\
             box_cxcywh_to_xyxy(student_boxes), box_cxcywh_to_xyxy(teacher_boxes)))
         losses['distill_giou_loss'] = loss_giou.sum() / num_boxes
-        '''
+
         return losses

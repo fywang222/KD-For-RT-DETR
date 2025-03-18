@@ -54,9 +54,8 @@ def train_one_epoch(model: torch.nn.Module,
             with torch.autocast(device_type=str(device), cache_enabled=True):
                 outputs = model(samples, targets=targets)
 
-            #with torch.no_grad():
-                #teacher_outputs = teacher(teacher_samples)
-            teacher_outputs = None
+            with torch.no_grad():
+                teacher_outputs = teacher(teacher_samples)
 
             with torch.autocast(device_type=str(device), enabled=False):
                 loss_dict = criterion(outputs, targets, teacher_outputs, **metas)
