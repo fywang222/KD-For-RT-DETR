@@ -478,7 +478,7 @@ class RTDETRTransformerv2(nn.Module):
 
         anchors = torch.concat(anchors, dim=1).to(device)
         valid_mask = ((anchors > self.eps) * (anchors < 1 - self.eps)).all(-1, keepdim=True)
-        anchors = torch.log(anchors / (1 - anchors))
+        anchors = torch.log(anchors / (1 - anchors)) # inverse sigmoid
         anchors = torch.where(valid_mask, anchors, torch.inf)
 
         return anchors, valid_mask
@@ -510,7 +510,7 @@ class RTDETRTransformerv2(nn.Module):
             self._select_topk(output_memory, enc_outputs_logits, enc_outputs_coord_unact, self.num_queries)
 
         # TODO teacher
-        if self.training:
+        if self.training or self.teacher:
             enc_topk_bboxes = F.sigmoid(enc_topk_bbox_unact)
             enc_topk_bboxes_list.append(enc_topk_bboxes)
             enc_topk_logits_list.append(enc_topk_logits)

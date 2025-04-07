@@ -69,7 +69,6 @@ class RTDETRCriterionv2Distill(nn.Module):
         target = F.one_hot(target_classes, num_classes=self.num_classes+1)[..., :-1]
         loss = torchvision.ops.sigmoid_focal_loss(src_logits, target, self.alpha, self.gamma, reduction='none')
         loss = loss.mean(1).sum() * src_logits.shape[1] / num_boxes
-
         return {'loss_focal': loss}
 
     def loss_labels_vfl(self, outputs, targets, indices, num_boxes, values=None):
@@ -135,12 +134,6 @@ class RTDETRCriterionv2Distill(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def distillation_loss(self, outputs, teacher_outputs) -> None:
-        """distillation_loss
-        """
-        return self.distiller(outputs, teacher_outputs)
-
-
     def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
         loss_map = {
             'boxes': self.loss_boxes,
@@ -181,15 +174,15 @@ class RTDETRCriterionv2Distill(nn.Module):
         for loss in self.losses:
             if loss == 'distillation':
                 #TODO here
-                l_dict = self.distillation_loss(outputs, teacher_outputs)
+                l_dict = self.distiller(outputs, teacher_outputs)
                 l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                 losses.update(l_dict)
-
             else:
                 meta = self.get_loss_meta_info(loss, outputs, targets, indices)
                 l_dict = self.get_loss(loss, outputs, targets, indices, num_boxes, **meta)
                 l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                 losses.update(l_dict)
+
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
@@ -201,7 +194,7 @@ class RTDETRCriterionv2Distill(nn.Module):
                 teacher_aux = teacher_outputs['aux_outputs'][i] if teacher_outputs is not None else None
                 for loss in self.losses:
                     if loss == 'distillation':
-                        l_dict = self.distillation_loss(aux_outputs, teacher_aux)
+                        l_dict = self.distiller(aux_outputs, teacher_aux)
                         l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                         l_dict = {k + f'_aux_{i}': v for k, v in l_dict.items()}
                         losses.update(l_dict)
@@ -261,16 +254,22 @@ class RTDETRCriterionv2Distill(nn.Module):
             for i, aux_outputs in enumerate(outputs['enc_aux_outputs']):
                 matched = self.matcher(aux_outputs, targets)
                 indices = matched['indices']
-                #TODO no distillation loss for encoder
+
+                teacher_enc_aux = teacher_outputs['enc_aux_outputs'][i] if teacher_outputs is not None else None
+
                 for loss in self.losses:
                     if loss == 'distillation':
-                        continue
-                    meta = self.get_loss_meta_info(loss, aux_outputs, enc_targets, indices)
-                    l_dict = self.get_loss(loss, aux_outputs, enc_targets, indices, num_boxes, **meta)
-                    l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
-                    l_dict = {k + f'_enc_{i}': v for k, v in l_dict.items()}
-                    losses.update(l_dict)
-            
+                        l_dict = self.distiller(aux_outputs, teacher_enc_aux)
+                        l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
+                        l_dict = {k + f'_enc_{i}': v for k, v in l_dict.items()}
+                        losses.update(l_dict)
+                    else:
+                        meta = self.get_loss_meta_info(loss, aux_outputs, enc_targets, indices)
+                        l_dict = self.get_loss(loss, aux_outputs, enc_targets, indices, num_boxes, **meta)
+                        l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
+                        l_dict = {k + f'_enc_{i}': v for k, v in l_dict.items()}
+                        losses.update(l_dict)
+
             if class_agnostic:
                 self.num_classes = orig_num_classes
 

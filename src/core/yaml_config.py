@@ -30,7 +30,10 @@ class YAMLConfig(BaseConfig):
     @property
     def model(self, ) -> torch.nn.Module:
         if self._model is None and 'model' in self.yaml_cfg:
-            self._model = create('model', self.global_cfg)
+            if self.yaml_cfg['task'] == 'distillation':
+                self._model = create('model', self.global_cfg)
+            else:
+                self._model = create(self.yaml_cfg['model'], self.global_cfg)
         return super().model
 
     @property

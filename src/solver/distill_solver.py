@@ -7,7 +7,7 @@ import torch
 from ..misc import dist_utils, profiler_utils
 
 from ._solver import BaseSolver
-from .distill_engine import train_one_epoch, evaluate
+from .distill_engine import train_one_epoch, evaluate, eva, eva_1
 
 
 class DistillSolver(BaseSolver):
@@ -33,6 +33,15 @@ class DistillSolver(BaseSolver):
         '''
         _, _ = evaluate(self.teacher, self.criterion, self.postprocessor,
                 self.val_dataloader, self.evaluator, self.device)
+
+        _, _ = evaluate(self.model, self.criterion, self.postprocessor,
+                self.val_dataloader, self.evaluator, self.device)
+
+        _, _ = eva(self.model, self.teacher, self.criterion, self.postprocessor,
+                self.val_dataloader, self.evaluator, self.device)
+
+        _, _ = eva_1(self.model, self.teacher, self.criterion, self.postprocessor,
+                     self.val_dataloader, self.evaluator, self.device)
         '''
 
         for epoch in range(start_epcoch, args.epoches):

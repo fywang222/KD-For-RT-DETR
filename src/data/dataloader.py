@@ -18,7 +18,6 @@ __all__ = [
     'DataLoader',
     'BaseCollateFunction', 
     'BatchImageCollateFuncion',
-    'DistillBatchImageCollateFuncion',
     'batch_image_collate_fn',
 ]
 
@@ -107,61 +106,5 @@ class BatchImageCollateFuncion(BaseCollateFunction):
                 raise NotImplementedError('')
 
         return images, targets
-
-
-@register()
-class DistillBatchImageCollateFuncion(BaseCollateFunction):
-    def __init__(
-            self,
-            scales=None,
-            stop_epoch=None,
-    ) -> None:
-        super().__init__()
-        self.scales = scales
-        self.stop_epoch = stop_epoch if stop_epoch is not None else 100000000
-        # self.interpolation = interpolation
-
-    def __call__(self, items):
-        images = torch.cat([x[0][None] for x in items], dim=0)
-
-        # TODO need to modified when the teacher model changed from DETA, hard code here
-        tensor_list = [x[2] for x in items]
-        def _max_by_axis(the_list):
-            # type: (List[List[int]]) -> List[int]
-            maxes = the_list[0]
-            for sublist in the_list[1:]:
-                for index, item in enumerate(sublist):
-                    maxes[index] = max(maxes[index], item)
-            return maxes
-        max_size = _max_by_axis([list(img.shape) for img in tensor_list])
-        # min_size = tuple(min(s) for s in zip(*[img.shape for img in tensor_list]))
-        batch_shape = [len(tensor_list)] + max_size
-        b, c, h, w = batch_shape
-        dtype = tensor_list[0].dtype
-        device = tensor_list[0].device
-        tensor = torch.zeros(batch_shape, dtype=dtype, device=device)
-        mask = torch.ones((b, h, w), dtype=torch.bool, device=device)
-        for img, pad_img, m in zip(tensor_list, tensor, mask):
-            pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
-            m[: img.shape[1], :img.shape[2]] = False
-        teacher_images = tensor
-
-        targets = [x[1] for x in items]
-
-        teacher_targets = [x[3] for x in items]
-
-        if self.scales is not None and self.epoch < self.stop_epoch:
-            # sz = random.choice(self.scales)
-            # sz = [sz] if isinstance(sz, int) else list(sz)
-            # VF.resize(inpt, sz, interpolation=self.interpolation)
-
-            sz = random.choice(self.scales)
-            images = F.interpolate(images, size=sz)
-            if 'masks' in targets[0]:
-                for tg in targets:
-                    tg['masks'] = F.interpolate(tg['masks'], size=sz, mode='nearest')
-                raise NotImplementedError('')
-
-        return images, targets, teacher_images, teacher_targets
 
 
