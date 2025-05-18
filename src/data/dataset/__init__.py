@@ -3,7 +3,7 @@
 
 # from ._dataset import DetDataset
 from .cifar_dataset import CIFAR10
-from .coco_dataset import CocoDetection, CocoDetectionDistill
+from .coco_dataset import CocoDetection
 from .coco_dataset import (
     CocoDetection, 
     mscoco_category2name, 

@@ -8,7 +8,7 @@ __include__: [
 ]
 
 
-output_dir: ./output/rtdetrv2_r101vd_distill_to_rtdetrv2_r50vd_flatten_with_distill_enc
+output_dir: ./output/rtdetrv2_r101vd_distill_to_rtdetrv2_r50vd_hungarian
 
 
 optimizer:
@@ -42,12 +42,14 @@ RTDETRCriterionv2Distill:
     gamma: 2.0
 
   distiller:
-    type: KD
-    temperature: 1.0
-    logits_loss_type: 'flatten'
-    one_hot: False
-    alpha: 0.25
-    gamma: 2.0
+    type: Hungarian_KD
+
+  #distiller:
+    #type: KD
+    #temperature: 1.0
+    #logits_loss_type: 'vfl'
+    #alpha: 0.25
+    #gamma: 2.0
 
   teacher_resetter:
     type: BlankResetter

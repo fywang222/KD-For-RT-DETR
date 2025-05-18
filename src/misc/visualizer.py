@@ -22,7 +22,10 @@ def show_sample(sample):
     if isinstance(image, PIL.Image.Image):
         image = F.to_image_tensor(image)
 
-    image = F.convert_dtype(image, torch.uint8)
+    #image = F.convert_dtype(image, torch.uint8)
+    from torchvision.transforms.v2 import ConvertImageDtype
+    image = ConvertImageDtype(torch.uint8)(image)
+
     annotated_image = draw_bounding_boxes(image, target["boxes"], colors="yellow", width=3)
 
     fig, ax = plt.subplots()

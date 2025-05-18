@@ -44,7 +44,7 @@ teacher:
     num_layers: 6
     num_queries: 300
 
-    num_denoising: 100
+    num_denoising: 0 # 100
     label_noise_ratio: 0.5
     box_noise_scale: 1.0 # 1.0 0.4
 

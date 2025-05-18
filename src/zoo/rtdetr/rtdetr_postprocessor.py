@@ -101,8 +101,8 @@ class RTDETRPostProcessor(nn.Module):
 
 
         results = []
-        for lab, box, sco in zip(labels, boxes, scores):
-            result = dict(labels=lab, boxes=box, scores=sco)
+        for lab, box, sco, idx in zip(labels, boxes, scores, index):
+            result = dict(labels=lab, boxes=box, scores=sco, indices=idx)
             results.append(result)
         
         return results

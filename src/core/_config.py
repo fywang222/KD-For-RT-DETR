@@ -212,7 +212,6 @@ class BaseConfig(object):
         assert isinstance(shuffle, bool), 'shuffle must be bool'
         self._train_shuffle = shuffle
 
-
     @property
     def train_batch_size(self) -> int:
         if self._train_batch_size is None and isinstance(self.batch_size, int):

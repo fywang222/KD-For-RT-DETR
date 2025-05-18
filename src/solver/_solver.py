@@ -107,6 +107,26 @@ class BaseSolver(object):
             print(f'Resume checkpoint from {self.cfg.resume}')
             self.load_resume_state(self.cfg.resume)
 
+    def visualize(self,):
+        self._setup()
+        self.train_dataloader = dist_utils.warp_loader(self.cfg.train_dataloader, \
+                                                       shuffle=self.cfg.train_dataloader.shuffle)
+        self.val_dataloader = dist_utils.warp_loader(self.cfg.val_dataloader, \
+                                                     shuffle=self.cfg.val_dataloader.shuffle)
+
+        self.evaluator = self.cfg.evaluator
+
+        # NOTE instantiating order
+        if self.cfg.task == 'distillation':
+            assert self.cfg.teacher_resume, 'teacher_resume is required'
+            print(f'Resume teacher checkpoint from {self.cfg.teacher_resume}')
+            self.load_teacher_resume_state(self.cfg.teacher_resume)
+            pass
+
+        if self.cfg.resume:
+            print(f'Resume checkpoint from {self.cfg.resume}')
+            self.no_strict_load_resume_state(self.cfg.resume)
+
     def to(self, device):
         for k, v in self.__dict__.items():
             if hasattr(v, 'to'):
@@ -158,7 +178,29 @@ class BaseSolver(object):
 
         self.load_state_dict(state)
 
-    
+
+
+    # just for visualization
+    def no_strict_load_resume_state(self, path: str):
+        """load resume
+        """
+        # for cuda:0 memory
+        if path.startswith('http'):
+            state = torch.hub.load_state_dict_from_url(path, map_location='cpu')
+        else:
+            state = torch.load(path, map_location='cpu')
+
+        module = dist_utils.de_parallel(self.model)
+
+        if 'ema' in state:
+            stat, infos = self._matched_state(module.state_dict(), state['ema']['module'])
+        else:
+            stat, infos = self._matched_state(module.state_dict(), state['model'])
+
+        module.load_state_dict(stat, strict=False)
+        print(f'Load model.state_dict, {infos}')
+
+
     def load_tuning_state(self, path: str,):
         """only load model for tuning and skip missed/dismatched keys
         """
