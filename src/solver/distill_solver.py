@@ -36,6 +36,8 @@ class DistillSolver(BaseSolver):
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
 
+            self.criterion.resetter.set_epoch(epoch)
+
             train_stats = train_one_epoch(
                 self.model, 
                 self.teacher,
@@ -51,7 +53,6 @@ class DistillSolver(BaseSolver):
                 lr_warmup_scheduler=self.lr_warmup_scheduler,
                 writer=self.writer
             )
-
 
             if self.lr_warmup_scheduler is None or self.lr_warmup_scheduler.finished():
                 self.lr_scheduler.step()
@@ -94,14 +95,14 @@ class DistillSolver(BaseSolver):
                     dist_utils.save_on_master(self.state_dict(), self.output_dir / 'best.pth')
 
             print(f'best_stat: {best_stat}')
-
+            '''
             log_stats = {
                 **{f'train_{k}': v for k, v in train_stats.items()},
                 **{f'test_{k}': v for k, v in test_stats.items()},
                 'epoch': epoch,
                 'n_parameters': n_parameters
             }
-            
+             
 
             if self.output_dir and dist_utils.is_main_process():
                 with (self.output_dir / "log.txt").open("a") as f:
@@ -117,7 +118,7 @@ class DistillSolver(BaseSolver):
                         for name in filenames:
                             torch.save(coco_evaluator.coco_eval["bbox"].eval,
                                     self.output_dir / "eval" / name)
-
+            '''
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print('Training time {}'.format(total_time_str))

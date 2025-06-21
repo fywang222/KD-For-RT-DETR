@@ -69,7 +69,6 @@ class RTDETRPostProcessor(nn.Module):
             _, topk_indices = torch.topk(confidence,300, dim=-1)  # topk_indices shape: [N, 300]
             logits = logits.gather(dim=1, index=topk_indices.unsqueeze(-1).expand(-1, -1, logits.shape[-1]))
             bbox_pred = bbox_pred.gather(dim=1, index=topk_indices.unsqueeze(-1).expand(-1, -1, bbox_pred.shape[-1]))
-            print(logits.shape, bbox_pred.shape)
 
         if self.use_focal_loss:
             scores = F.sigmoid(logits)

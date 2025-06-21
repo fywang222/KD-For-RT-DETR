@@ -9,63 +9,30 @@ __all__ = (['Hungarian_KD', ])
 
 @register()
 class Hungarian_KD(BaseDistiller):
-    def __init__(self, ):
+    def __init__(self, share_matched_idx=False):
         super().__init__()
-    def distill(self, student_outputs, teacher_outputs, meta=None, shared_matched_idx=False):
+        self.share_matched_idx = share_matched_idx
+        self.threshold = 0.5  # threshold for pseudo label generation
+    def distill(self, student_outputs, teacher_meta, ):
+        assert teacher_meta is not None, "Do you really want to use hungarian matching?"
 
         losses = {}
 
-        student_logits = student_outputs['pred_logits']
-        teacher_logits = teacher_outputs['pred_logits']
+        matcher = teacher_meta['matcher']
+        num_boxes = teacher_meta['num_boxes']
 
-        matcher = meta['matcher']
-        num_boxes = meta['num_boxes']
+        pseudo_targets = teacher_meta['pseudo_targets']
 
-        if num_boxes is None:
-
-            threshold = 0.5
-
-            # find the indices of the positive samples
-            score = F.sigmoid(teacher_logits)
-            score_max, score_argmax = score.max(dim=-1)
-
-            valid_mask = score_max > threshold
-
-            pseudo_targets = []
-            for b in range(teacher_logits.shape[0]):
-                q_idxs = valid_mask[b].nonzero(as_tuple=False).squeeze(1)
-
-                labels = score_argmax[b, q_idxs]
-
-                boxes = teacher_outputs['pred_boxes'][b, q_idxs]
-
-                pseudo_targets.append({
-                    "labels": labels,  # Tensor[M_b]
-                    "boxes": boxes  # Tensor[M_b, 4]
-                })
-
-            num_boxes = valid_mask.sum()
-            num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=student_logits.device)
-            if is_dist_available_and_initialized():
-                torch.distributed.all_reduce(num_boxes)
-            num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
-
-            indices = matcher(student_outputs, pseudo_targets)['indices']
-            meta = {'matcher': matcher,'num_boxes': num_boxes,
-                    'pseudo_targets': pseudo_targets, 'indices': indices,}
-
+        if self.share_matched_idx and 'indices' in teacher_meta:
+            indices = teacher_meta['indices']
         else:
-            pseudo_targets = meta['pseudo_targets']
-            if shared_matched_idx:
-                indices = meta['indices']
-            else:
-                indices = matcher(student_outputs, pseudo_targets)['indices']
+            indices = matcher(student_outputs, pseudo_targets)['indices']
 
         losses['distill_cls_loss'] = self._vfl_loss(student_outputs, pseudo_targets, indices, num_boxes)
 
         losses.update(self.loss_boxes(student_outputs, pseudo_targets, indices, num_boxes,))
 
-        return losses, meta
+        return losses, teacher_meta
 
     def _vfl_loss(self, outputs, targets, indices, num_boxes, values=None):
         assert 'pred_boxes' in outputs

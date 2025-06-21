@@ -23,13 +23,11 @@ class KD(BaseDistiller):
 
         losses = {}
 
-        return_meta = False
 
         student_logits = student_outputs['pred_logits']
         teacher_logits = teacher_outputs['pred_logits']
 
         if meta is None:
-            return_meta = True
 
             threshold = 0.5
 
@@ -129,7 +127,4 @@ class KD(BaseDistiller):
             box_cxcywh_to_xyxy(distill_student_boxes), box_cxcywh_to_xyxy(distill_teacher_boxes)))
         losses['distill_giou_loss'] = loss_giou.sum() / num_boxes
 
-        if return_meta:
-            return losses, meta
-
-        return losses
+        return losses, meta

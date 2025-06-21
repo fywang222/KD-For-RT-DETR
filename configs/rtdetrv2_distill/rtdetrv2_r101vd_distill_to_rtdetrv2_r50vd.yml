@@ -8,7 +8,7 @@ __include__: [
 ]
 
 
-output_dir: ./output/rtdetrv2_r101vd_distill_to_rtdetrv2_r50vd_hungarian
+output_dir: ./output/rtdetrv2_r101vd_distill_to_rtdetrv2_r50vd_hungarian_progressive_v3
 
 
 optimizer:
@@ -51,7 +51,7 @@ RTDETRCriterionv2Distill:
     #alpha: 0.25
     #gamma: 2.0
 
-  teacher_resetter:
-    type: BlankResetter
+  resetter:
+    type: cdnPseudoResetter
 
 

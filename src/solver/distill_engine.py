@@ -51,13 +51,16 @@ def train_one_epoch(model: torch.nn.Module,
         if scaler is not None:
 
             with torch.autocast(device_type=str(device), cache_enabled=True):
-                outputs = model(samples, targets=targets)
 
                 with torch.no_grad():
                     teacher_outputs = teacher(teacher_samples)
 
+                    teacher_meta =  criterion.resetter(teacher_outputs)
+
+                outputs = model(samples, targets=teacher_meta['pseudo_targets'])
+
             with torch.autocast(device_type=str(device), enabled=False):
-                loss_dict = criterion(outputs, targets, teacher_outputs, **metas)
+                loss_dict = criterion(outputs, targets, teacher_meta, **metas)
 
             loss = sum(loss_dict.values())
 
@@ -115,6 +118,8 @@ def train_one_epoch(model: torch.nn.Module,
                 writer.add_scalar(f'Lr/pg_{j}', pg['lr'], global_step)
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f'Loss/{k}', v.item(), global_step)
+
+        if i== 500:break
                 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

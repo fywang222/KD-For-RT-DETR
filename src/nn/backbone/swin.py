@@ -34,7 +34,7 @@ from ...core import register
 
 
 
-__all__ = ['Joiner']
+__all__ = ['Joiner', ]
 
 swin_l_kwargs  = {
     'pretrain_img_size': 384,

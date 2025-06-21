@@ -8,7 +8,7 @@ __include__: [
 ]
 
 
-output_dir: ./output/relation_detr_focalnet_distill_to_rtdetr_r50vd
+output_dir: ./output/relation_detr_focalnet_distill_to_rtdetr_r50vd_hungarian
 
 
 optimizer:
@@ -43,8 +43,7 @@ RTDETRCriterionv2Distill:
     gamma: 2.0
 
   distiller:
-    type: KD
-    temperature: 0.5
+    type: Hungarian_KD
 
   teacher_resetter:
-    type: BlankResetter
+    type: Remap2CocoResetter

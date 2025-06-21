@@ -1,6 +1,8 @@
 import copy
 from typing import Dict, List
 
+import torch
+
 from torch import Tensor, nn
 
 from ..backbones.focalnet import FocalNetBackbone
@@ -117,10 +119,12 @@ class RelationDETR(DNDETRDetector):
         # get original image sizes, used for postprocess
         original_image_sizes = self.query_original_sizes(images)
 
+
         # FIXME if distillation is needed, remove the preprocessing
         images, targets, mask = self.preprocess(images, targets)
 
         # get multi-level features, masks, and pos_embeds
+
         multi_levels = self.get_multi_levels(images, mask)
         multi_level_feats, multi_level_masks, multi_level_pos_embeds = multi_levels
 
@@ -142,8 +146,7 @@ class RelationDETR(DNDETRDetector):
             max_gt_num_per_image = None
 
         # feed into transformer
-        (
-            outputs_class,
+        (   outputs_class,
             outputs_coord,
             enc_class,
             enc_coord,
@@ -176,16 +179,16 @@ class RelationDETR(DNDETRDetector):
         # prepare for loss computation
         output = {"pred_logits": outputs_class[-1], "pred_boxes": outputs_coord[-1]}
         output["aux_outputs"] = self._set_aux_loss(outputs_class, outputs_coord)
-        output["enc_outputs"] = {"pred_logits": enc_class, "pred_boxes": enc_coord}
+        output["enc_aux_outputs"] = [{"pred_logits": enc_class, "pred_boxes": enc_coord}]
 
         if self.training:
             # prepare for hybrid loss computation
             hybrid_metas = {"pred_logits": hybrid_class[-1], "pred_boxes": hybrid_coord[-1]}
             hybrid_metas["aux_outputs"] = self._set_aux_loss(hybrid_class, hybrid_coord)
-            hybrid_metas["enc_outputs"] = {
+            hybrid_metas["enc_aux_outputs"] = [{
                 "pred_logits": hybrid_enc_class,
                 "pred_boxes": hybrid_enc_coord
-            }
+            }]
 
             # compute loss
             loss_dict = self.criterion(output, targets)

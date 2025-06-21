@@ -23,12 +23,12 @@ class RTDETRCriterionv2Distill(nn.Module):
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
     __share__ = ['num_classes', ]
-    __inject__ = ['matcher', 'distiller', 'teacher_resetter', ]
+    __inject__ = ['matcher', 'distiller', 'resetter', ]
 
     def __init__(self, \
         matcher,
         distiller,
-        teacher_resetter,
+        resetter,
         weight_dict, 
         losses, 
         alpha=0.2, 
@@ -50,7 +50,7 @@ class RTDETRCriterionv2Distill(nn.Module):
         self.num_classes = num_classes
         self.matcher = matcher
         self.distiller = distiller
-        self.teacher_resetter = teacher_resetter
+        self.resetter = resetter
         self.weight_dict = weight_dict
         self.losses = losses
         self.num_layers = num_layers
@@ -144,7 +144,7 @@ class RTDETRCriterionv2Distill(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-    def forward(self, outputs, targets, teacher_outputs, **kwargs):
+    def forward(self, outputs, targets, teacher_meta, **kwargs):
         """ This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -167,20 +167,16 @@ class RTDETRCriterionv2Distill(nn.Module):
         # student_num_queries = outputs['pred_logits'].shape[1]
 
         # Reset teacher outputs
-        with torch.no_grad():
-            teacher_outputs = self.teacher_resetter(teacher_outputs)
 
         if isinstance(self.distiller, Hungarian_KD):
-            distill_meta = {'matcher': self.matcher, 'num_boxes': None,}
-        else:
-            distill_meta = None
+            teacher_meta['matcher'] = self.matcher
 
         # Compute all the requested losses
         losses = {}
         for loss in self.losses:
             if loss == 'distillation':
                 #TODO here
-                l_dict, distill_meta = self.distiller(outputs, teacher_outputs, distill_meta)
+                l_dict, distill_meta = self.distiller(outputs, teacher_meta)
                 l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                 losses.update(l_dict)
             else:
@@ -195,10 +191,9 @@ class RTDETRCriterionv2Distill(nn.Module):
                 if not self.share_matched_indices:
                     matched = self.matcher(aux_outputs, targets)
                     indices = matched['indices']
-                teacher_aux = teacher_outputs['aux_outputs'][i] if teacher_outputs is not None else None
                 for loss in self.losses:
                     if loss == 'distillation':
-                        l_dict, distill_meta = self.distiller(aux_outputs, teacher_aux, distill_meta)
+                        l_dict, distill_meta = self.distiller(aux_outputs, teacher_meta)
                         l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                         l_dict = {k + f'_aux_{i}': v for k, v in l_dict.items()}
                         losses.update(l_dict)
@@ -209,23 +204,33 @@ class RTDETRCriterionv2Distill(nn.Module):
                         l_dict = {k + f'_aux_{i}': v for k, v in l_dict.items()}
                         losses.update(l_dict)
 
-        '''
+
         # In case of cdn auxiliary losses. For rtdetr
         if 'dn_aux_outputs' in outputs:
             assert 'dn_meta' in outputs, ''
-            indices = self.get_cdn_matched_indices(outputs['dn_meta'], targets)
-            dn_num_boxes = num_boxes * outputs['dn_meta']['dn_num_group']
+
+            # hard code distillation loss for cdn
+            if "distillation" in self.losses:
+                teacher_cdn_meta = copy.deepcopy(teacher_meta)
+                teacher_meta['num_boxes'] *= outputs['dn_meta']['dn_num_group']
+            else:
+                indices = self.get_cdn_matched_indices(outputs['dn_meta'], targets)
+                dn_num_boxes = num_boxes * outputs['dn_meta']['dn_num_group']
 
             for i, aux_outputs in enumerate(outputs['dn_aux_outputs']):
                 # TODO no distillation loss for cdn
                 for loss in self.losses:
                     if loss == 'distillation':
-                        continue
-                    meta = self.get_loss_meta_info(loss, aux_outputs, targets, indices)
-                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, dn_num_boxes, **meta)
-                    l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
-                    l_dict = {k + f'_dn_{i}': v for k, v in l_dict.items()}
-                    losses.update(l_dict)
+                        l_dict, distill_meta = self.distiller(aux_outputs, teacher_cdn_meta)
+                        l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
+                        l_dict = {k + f'_dn_{i}': v for k, v in l_dict.items()}
+                        losses.update(l_dict)
+                    else:
+                        meta = self.get_loss_meta_info(loss, aux_outputs, targets, indices)
+                        l_dict = self.get_loss(loss, aux_outputs, targets, indices, dn_num_boxes, **meta)
+                        l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
+                        l_dict = {k + f'_dn_{i}': v for k, v in l_dict.items()}
+                        losses.update(l_dict)
         else:
             bbox_loss_names = ["loss_bbox_dn_"+str(i) for i in range(self.num_layers)]
             giou_loss_names = ["loss_giou_dn_"+str(i) for i in range(self.num_layers)]
@@ -233,6 +238,8 @@ class RTDETRCriterionv2Distill(nn.Module):
                 cls_loss_names = ["loss_focal_dn_"+str(i) for i in range(self.num_layers)]
             elif "vfl" in self.losses:
                 cls_loss_names = ["loss_vfl_dn_"+str(i) for i in range(self.num_layers)]
+            elif "distillation" in self.losses:
+                cls_loss_names = ["loss_distill_dn_"+str(i) for i in range(self.num_layers)]
             else:
                 print("No classification loss")
             device = losses['loss_bbox'].device
@@ -240,7 +247,7 @@ class RTDETRCriterionv2Distill(nn.Module):
                 losses[bbox_loss_names[i]] = torch.tensor(0, requires_grad = False).to(device)
                 losses[giou_loss_names[i]] = torch.tensor(0, requires_grad = False).to(device)
                 losses[cls_loss_names[i]] = torch.tensor(0, requires_grad = False).to(device)
-        '''
+
 
         # In case of encoder auxiliary losses. For rtdetr v2
         if 'enc_aux_outputs' in outputs:
@@ -259,11 +266,9 @@ class RTDETRCriterionv2Distill(nn.Module):
                 matched = self.matcher(aux_outputs, targets)
                 indices = matched['indices']
 
-                teacher_enc_aux = teacher_outputs['enc_aux_outputs'][i] if teacher_outputs is not None else None
-
                 for loss in self.losses:
                     if loss == 'distillation':
-                        l_dict, distill_meta = self.distiller(aux_outputs, teacher_enc_aux, distill_meta)
+                        l_dict, distill_meta = self.distiller(aux_outputs, teacher_meta)
                         l_dict = {k: l_dict[k] * self.weight_dict[k] for k in l_dict if k in self.weight_dict}
                         l_dict = {k + f'_enc_{i}': v for k, v in l_dict.items()}
                         losses.update(l_dict)
